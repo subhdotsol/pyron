@@ -8,6 +8,8 @@ license.workspace = true
 [dependencies]
 pyron-parser = { path = "../crates/pyron-parser" }
 pyron-sim = { path = "../crates/pyron-sim" }
+pyron-report = { path = "../crates/pyron-report" }
+solana-sdk = { workspace = true }
 
 clap = { workspace = true }
 anyhow = { workspace = true }
