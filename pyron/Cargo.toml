@@ -1,7 +1,21 @@
 [package]
 name = "pyron"
+description = "Solana compute unit profiler"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+pyron-parser = { path = "../crates/pyron-parser" }
+pyron-sim = { path = "../crates/pyron-sim" }
+
+clap = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+colored = { workspace = true }
+indicatif = { workspace = true }
+
+[[bin]]
+name = "pyron"
+path = "src/main.rs"

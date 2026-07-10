@@ -8,8 +8,6 @@ struct Frame {
     program: String,
     instruction: Option<String>,
     depth: usize,
-    /// CU budget remaining when this frame was entered
-    budget_at_entry: u64,
     children: Vec<CuNode>,
 }
 
@@ -58,7 +56,6 @@ pub fn parse_logs(logs: &[String]) -> Result<CuNode, ParseError> {
                     program,
                     instruction: None,
                     depth,
-                    budget_at_entry: 0, // filled when consumed line arrives
                     children: Vec::new(),
                 });
                 continue;
@@ -84,7 +81,7 @@ pub fn parse_logs(logs: &[String]) -> Result<CuNode, ParseError> {
                     .map_err(|_| ParseError::MalformedLog(line.to_string()))?;
 
                 // Pop the matching frame
-                let mut frame = stack.pop().ok_or(ParseError::UnexpectedConsumed)?;
+                let frame = stack.pop().ok_or(ParseError::UnexpectedConsumed)?;
 
                 // cu_consumed is simply cu_used from the log line
                 let cu_consumed = cu_used;
