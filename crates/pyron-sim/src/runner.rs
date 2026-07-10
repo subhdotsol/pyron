@@ -73,13 +73,13 @@ pub fn simulate_instruction(config: &RunConfig, ix: &IdlInstruction) -> Result<V
 
         let logs = result.value.logs.unwrap_or_default();
 
-        println!(
-            "[run {}] logs ({} lines): {:?}",
-            i,
-            logs.len(),
-            &logs[..logs.len().min(3)]
-        );
-        println!("[run {}] error: {:?}", i, result.value.err);
+        // println!(
+        //     "[run {}] logs ({} lines): {:?}",
+        //     i,
+        //     logs.len(),
+        //     &logs[..logs.len().min(3)]
+        // );
+        // println!("[run {}] error: {:?}", i, result.value.err);
 
         if logs.is_empty() {
             // RPC returned no logs — probably wrong program ID or not deployed
@@ -103,6 +103,33 @@ pub fn simulate_instruction(config: &RunConfig, ix: &IdlInstruction) -> Result<V
     }
 
     Ok(nodes)
+}
+
+/// Resolve a usable fee payer pubkey for simulation by reading the program's
+/// BPFLoaderUpgradeable data account and extracting the upgrade authority.
+/// Falls back to None if the program is immutable or the account can't be read.
+pub fn resolve_payer_pubkey(rpc_url: &str, program_id: &Pubkey) -> Option<Pubkey> {
+    let client = RpcClient::new(rpc_url.to_string());
+
+    let program_account = client.get_account(program_id).ok()?;
+    if program_account.data.len() < 36 {
+        return None;
+    }
+    // BPFLoaderUpgradeable Program account layout:
+    //   [0..4]  u32 discriminant = 2
+    //   [4..36] Pubkey = programdata_address
+    let programdata_address = Pubkey::try_from(&program_account.data[4..36]).ok()?;
+
+    let pd = client.get_account(&programdata_address).ok()?;
+    if pd.data.len() < 45 || pd.data[12] == 0 {
+        return None;
+    }
+    // BPFLoaderUpgradeable ProgramData account layout:
+    //   [0..4]  u32 discriminant = 3
+    //   [4..12] u64 slot
+    //   [12]    u8  Option flag (1 = Some)
+    //   [13..45] Pubkey = upgrade authority
+    Pubkey::try_from(&pd.data[13..45]).ok()
 }
 
 /// Simulate ALL instructions in the IDL and return results per instruction.
@@ -210,7 +237,10 @@ mod tests {
         println!("  p95: {} CU", stats.p95);
         println!("  max: {} CU", stats.max);
         println!("  runs: {}", stats.runs);
-        println!("recommended limit: {} CU (p95 + 10%)", stats.recommended_cu_limit);
+        println!(
+            "recommended limit: {} CU (p95 + 10%)",
+            stats.recommended_cu_limit
+        );
         println!(
             "ComputeBudgetProgram::set_compute_unit_limit({});",
             stats.recommended_cu_limit

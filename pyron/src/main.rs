@@ -33,6 +33,10 @@ enum Commands {
         /// Override IDL path (auto-detected if omitted)
         #[arg(long)]
         idl: Option<String>,
+
+        /// Fee payer pubkey for simulation (auto-detected from program upgrade authority if omitted)
+        #[arg(long)]
+        payer: Option<String>,
     },
 
     /// Save current profile as baseline for regression detection
@@ -62,8 +66,9 @@ async fn main() -> Result<()> {
             rpc_url,
             program_id,
             idl,
+            payer,
         } => {
-            cmd::profile::run(instruction, runs, rpc_url, program_id, idl)?;
+            cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer)?;
         }
         Commands::Baseline => println!("[Phase 4] baseline — coming soon"),
         Commands::Diff { max_regression } => {

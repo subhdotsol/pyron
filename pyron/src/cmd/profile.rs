@@ -3,7 +3,7 @@ use pyron_parser::aggregate;
 use pyron_report::{
     clear_progress, print_footer, print_header, print_instruction_stats, print_simulating,
 };
-use pyron_sim::{detect, load_idl, simulate_instruction, RunConfig};
+use pyron_sim::{detect, load_idl, resolve_payer_pubkey, simulate_instruction, RunConfig};
 use solana_sdk::pubkey::Pubkey;
 use std::{path::PathBuf, time::Instant};
 
@@ -13,6 +13,7 @@ pub fn run(
     rpc_url: String,
     program_id_override: Option<String>,
     idl_path_override: Option<String>,
+    payer_override: Option<String>,
 ) -> Result<()> {
     let start = Instant::now();
     let cwd = std::env::current_dir()?;
@@ -50,11 +51,17 @@ pub fn run(
         anyhow::bail!("No instructions found matching filter. Check your IDL.");
     }
 
+    let payer_pubkey = match payer_override {
+        Some(ref s) => s.parse().context("Invalid payer pubkey")?,
+        None => resolve_payer_pubkey(&rpc_url, &program_id)
+            .context("Could not resolve fee payer from program upgrade authority. Pass --payer <PUBKEY>")?,
+    };
+
     let config = RunConfig {
         rpc_url: rpc_url.clone(),
         runs,
         program_id,
-        payer_pubkey: Pubkey::default(),
+        payer_pubkey,
     };
 
     print_header(&program_id.to_string(), &rpc_url, runs);
