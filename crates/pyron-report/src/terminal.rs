@@ -6,7 +6,7 @@ const BAR_WIDTH: usize = 20;
 
 pub fn print_header(program_id: &str, rpc_url: &str, runs: usize) {
     println!();
-    println!("{} {}", "pyron".cyan().bold(), "Solana Compute Unit Profiler".white());
+    println!("{} {}", "pyron".cyan().bold(), "— Solana Compute Unit Profiler".white());
     println!("  {} {}", "program:".dimmed(), program_id.dimmed());
     println!(
         "  {} {}",
@@ -22,6 +22,8 @@ pub fn print_header(program_id: &str, rpc_url: &str, runs: usize) {
         "runs:   ".dimmed(),
         runs.to_string().dimmed()
     );
+    println!();
+    println!("{}", "─".repeat(52).dimmed());
     println!();
 }
 
@@ -57,7 +59,7 @@ pub fn print_instruction_stats(stats: &CuStats, tree: Option<&CuNode>) {
 
     println!(
         "  {} set_compute_unit_limit({})",
-        "limit:".blue(),
+        "→".blue(),
         stats.recommended_cu_limit.to_string().blue().bold(),
     );
 
@@ -73,7 +75,7 @@ pub fn print_instruction_stats(stats: &CuStats, tree: Option<&CuNode>) {
 pub fn print_cpi_tree(node: &CuNode, depth: usize, parent_cu: u64) {
     for child in &node.children {
         let indent = "  ".repeat(depth + 2);
-        let connector = if depth == 0 { "-" } else { "  -" };
+        let connector = if depth == 0 { "└─" } else { "  └─" };
         let name = child
             .instruction
             .as_deref()
@@ -96,16 +98,22 @@ pub fn print_cpi_tree(node: &CuNode, depth: usize, parent_cu: u64) {
 }
 
 pub fn print_footer(count: usize, elapsed_secs: f64) {
+    println!("{}", "─".repeat(52).dimmed());
     println!(
-        "done  profiled {} instructions in {:.1}s",
-        count, elapsed_secs,
+        "{} profiled {} instructions in {:.1}s",
+        "✓".green().bold(),
+        count,
+        elapsed_secs,
     );
     println!();
 }
 
 pub fn print_simulating(name: &str, current: usize, total: usize) {
+    let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let s = spinner[current % spinner.len()];
     print!(
-        "\r  profiling {} [{}/{}]    ",
+        "\r  {} profiling {} [{}/{}]    ",
+        s.cyan(),
         name.white(),
         current,
         total
@@ -124,7 +132,7 @@ fn make_bar(value: u64, max: u64) -> String {
     let filled = ((value as f64 / max as f64) * BAR_WIDTH as f64) as usize;
     let filled = filled.min(BAR_WIDTH);
     let empty = BAR_WIDTH - filled;
-    format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
+    format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
 }
 
 fn format_cu(cu: u64) -> String {

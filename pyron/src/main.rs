@@ -1,3 +1,5 @@
+mod cmd;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -10,19 +12,27 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Profile compute unit usage of your program
+    /// Profile compute unit usage of your Anchor program
     Profile {
-        /// Specific instruction to profile (profiles all if omitted)
+        /// Profile only this instruction (profiles all if omitted)
         #[arg(short, long)]
         instruction: Option<String>,
 
-        /// Number of simulation runs (default: 50)
+        /// Number of simulation runs per instruction
         #[arg(short, long, default_value = "50")]
         runs: usize,
 
-        /// RPC URL (default: localhost)
+        /// RPC URL (defaults to localhost:8899)
         #[arg(short = 'u', long, default_value = "http://127.0.0.1:8899")]
         rpc_url: String,
+
+        /// Override program ID (auto-detected from Anchor.toml if omitted)
+        #[arg(short, long)]
+        program_id: Option<String>,
+
+        /// Override IDL path (auto-detected if omitted)
+        #[arg(long)]
+        idl: Option<String>,
     },
 
     /// Save current profile as baseline for regression detection
@@ -34,10 +44,10 @@ enum Commands {
         max_regression: f64,
     },
 
-    /// Compare two compiled .so files side by side
+    /// Compare two .so files side by side
     Compare { a: String, b: String },
 
-    /// Get AI-powered optimization suggestions (requires ANTHROPIC_API_KEY)
+    /// AI-powered optimization suggestions
     Suggest,
 }
 
@@ -50,19 +60,17 @@ async fn main() -> Result<()> {
             instruction,
             runs,
             rpc_url,
+            program_id,
+            idl,
         } => {
-            println!("pyron profile");
-            println!("   runs:    {}", runs);
-            println!("   rpc:     {}", rpc_url);
-            println!("   filter:  {}", instruction.as_deref().unwrap_or("all"));
-            println!("\n[Phase 3 will implement the full profiling logic here]");
+            cmd::profile::run(instruction, runs, rpc_url, program_id, idl)?;
         }
-        Commands::Baseline => println!("[Phase 4] baseline saved"),
+        Commands::Baseline => println!("[Phase 4] baseline — coming soon"),
         Commands::Diff { max_regression } => {
             println!("[Phase 4] diff — threshold {}%", max_regression)
         }
         Commands::Compare { a, b } => println!("[Phase 4] compare {} vs {}", a, b),
-        Commands::Suggest => println!("[Phase 5] AI suggestions"),
+        Commands::Suggest => println!("[Phase 5] suggest — coming soon"),
     }
 
     Ok(())

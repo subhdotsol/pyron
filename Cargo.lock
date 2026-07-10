@@ -2629,8 +2629,10 @@ dependencies = [
  "colored",
  "indicatif",
  "pyron-parser",
+ "pyron-report",
  "pyron-sim",
  "serde_json",
+ "solana-sdk",
  "tokio",
 ]
 
@@ -2651,6 +2653,12 @@ dependencies = [
 [[package]]
 name = "pyron-report"
 version = "0.1.0"
+dependencies = [
+ "colored",
+ "indicatif",
+ "pyron-parser",
+ "serde_json",
+]
 
 [[package]]
 name = "pyron-sim"

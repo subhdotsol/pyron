@@ -1,14 +1,8 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub mod badge;
+pub mod html;
+pub mod terminal;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use terminal::{
+    clear_progress, print_cpi_tree, print_footer, print_header, print_instruction_stats,
+    print_simulating,
+};
