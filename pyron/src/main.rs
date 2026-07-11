@@ -19,11 +19,13 @@ enum Commands {
         instruction: Option<String>,
 
         /// Number of simulation runs per instruction
-        #[arg(short, long, default_value = "50")]
+        /// How many simulations to run per instruction. More = better p50/p95/max accuracy.
+        /// 10 is good for devnet; use 50+ on a local validator.
+        #[arg(short, long, default_value = "10")]
         runs: usize,
 
-        /// RPC URL (defaults to localhost:8899)
-        #[arg(short = 'u', long, default_value = "http://127.0.0.1:8899")]
+        /// RPC URL (defaults to devnet)
+        #[arg(short = 'u', long, default_value = "https://api.devnet.solana.com")]
         rpc_url: String,
 
         /// Override program ID (auto-detected from Anchor.toml if omitted)
@@ -40,12 +42,45 @@ enum Commands {
     },
 
     /// Save current profile as baseline for regression detection
-    Baseline,
+    Baseline {
+        #[arg(short = 'u', long, default_value = "https://api.devnet.solana.com")]
+        rpc_url: String,
+
+        #[arg(short, long)]
+        program_id: Option<String>,
+
+        #[arg(long)]
+        idl: Option<String>,
+
+        #[arg(short, long, default_value = "10")]
+        runs: usize,
+
+        /// Output file path
+        #[arg(short, long, default_value = "pyron-baseline.json")]
+        output: String,
+    },
 
     /// Compare current profile against saved baseline
     Diff {
+        #[arg(short = 'u', long, default_value = "https://api.devnet.solana.com")]
+        rpc_url: String,
+
+        #[arg(short, long)]
+        program_id: Option<String>,
+
+        #[arg(long)]
+        idl: Option<String>,
+
+        #[arg(short, long, default_value = "10")]
+        runs: usize,
+
+        /// Fail if any instruction regresses more than this %
         #[arg(long, default_value = "10")]
         max_regression: f64,
+
+        /// Path to baseline file
+        #[arg(short, long, default_value = "pyron-baseline.json")]
+        baseline: String,
     },
 
     /// Compare two .so files side by side
@@ -70,9 +105,26 @@ async fn main() -> Result<()> {
         } => {
             cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer)?;
         }
-        Commands::Baseline => println!("[Phase 4] baseline — coming soon"),
-        Commands::Diff { max_regression } => {
-            println!("[Phase 4] diff — threshold {}%", max_regression)
+        Commands::Baseline {
+            rpc_url,
+            program_id,
+            idl,
+            runs,
+            output,
+        } => {
+            cmd::baseline::run(rpc_url, program_id, idl, runs, output)?;
+        }
+        Commands::Diff {
+            rpc_url,
+            program_id,
+            idl,
+            runs,
+            max_regression,
+            baseline,
+        } => {
+            let exit_code =
+                cmd::diff::run(rpc_url, program_id, idl, runs, max_regression, baseline)?;
+            std::process::exit(exit_code);
         }
         Commands::Compare { a, b } => println!("[Phase 4] compare {} vs {}", a, b),
         Commands::Suggest => println!("[Phase 5] suggest — coming soon"),

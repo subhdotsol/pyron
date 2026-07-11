@@ -3,8 +3,7 @@ use pyron_parser::aggregate;
 use pyron_report::{
     clear_progress, print_footer, print_header, print_instruction_stats, print_simulating,
 };
-use pyron_sim::{detect, load_idl, resolve_payer_pubkey, simulate_instruction, RunConfig};
-use solana_sdk::pubkey::Pubkey;
+use pyron_sim::{detect_idl, detect_program_id, load_idl, resolve_payer_pubkey, simulate_instruction, RunConfig};
 use std::{path::PathBuf, time::Instant};
 
 pub fn run(
@@ -18,21 +17,15 @@ pub fn run(
     let start = Instant::now();
     let cwd = std::env::current_dir()?;
 
-    let project =
-        detect(&cwd).context("Could not detect Solana project. Run from your project root.")?;
-
     let program_id = match program_id_override {
-        Some(ref id) => id
-            .parse()
-            .context("Invalid program ID — should be a base58 pubkey")?,
-        None => read_program_id_from_anchor_toml(&cwd).unwrap_or_default(),
+        Some(ref id) => id.parse().context("Invalid program ID")?,
+        None => detect_program_id(&cwd)
+            .context("Could not detect program ID. Pass --program-id or run from your project root.")?,
     };
 
     let idl_path = match idl_path_override {
         Some(ref p) => PathBuf::from(p),
-        None => project
-            .idl_path
-            .clone()
+        None => detect_idl(&cwd)
             .context("No IDL found. Run `anchor build` first, or pass --idl")?,
     };
 
@@ -48,21 +41,16 @@ pub fn run(
     };
 
     if instructions.is_empty() {
-        anyhow::bail!("No instructions found matching filter. Check your IDL.");
+        anyhow::bail!("No instructions match the filter. Check your IDL.");
     }
 
     let payer_pubkey = match payer_override {
         Some(ref s) => s.parse().context("Invalid payer pubkey")?,
         None => resolve_payer_pubkey(&rpc_url, &program_id)
-            .context("Could not resolve fee payer from program upgrade authority. Pass --payer <PUBKEY>")?,
+            .context("Could not resolve fee payer. Pass --payer <PUBKEY>")?,
     };
 
-    let config = RunConfig {
-        rpc_url: rpc_url.clone(),
-        runs,
-        program_id,
-        payer_pubkey,
-    };
+    let config = RunConfig { rpc_url: rpc_url.clone(), runs, program_id, payer_pubkey };
 
     print_header(&program_id.to_string(), &rpc_url, runs);
 
@@ -92,18 +80,4 @@ pub fn run(
     print_footer(profiled, start.elapsed().as_secs_f64());
 
     Ok(())
-}
-
-fn read_program_id_from_anchor_toml(project_root: &PathBuf) -> Option<Pubkey> {
-    let toml_path = project_root.join("Anchor.toml");
-    let contents = std::fs::read_to_string(toml_path).ok()?;
-    for line in contents.lines() {
-        if let Some(eq_pos) = line.find('=') {
-            let value = line[eq_pos + 1..].trim().trim_matches('"');
-            if let Ok(pk) = value.parse() {
-                return Some(pk);
-            }
-        }
-    }
-    None
 }

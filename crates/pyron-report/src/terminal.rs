@@ -1,5 +1,5 @@
 use colored::Colorize;
-use pyron_parser::{CuNode, CuStats};
+use pyron_parser::{CuNode, CuStats, DiffResult};
 
 const BUDGET: u64 = 1_400_000;
 const BAR_WIDTH: usize = 20;
@@ -126,6 +126,109 @@ pub fn clear_progress() {
     print!("\r{}\r", " ".repeat(60));
     use std::io::Write;
     std::io::stdout().flush().ok();
+}
+
+pub fn print_diff_header(baseline_path: &str, saved_at: &str, threshold: f64) {
+    println!();
+    println!("{} {}", "pyron diff".cyan().bold(), "— regression check".white());
+    println!("  {} {}", "baseline:".dimmed(), baseline_path.dimmed());
+    println!("  {} {}", "saved at:".dimmed(), saved_at.dimmed());
+    println!(
+        "  {} {}% max regression allowed",
+        "threshold:".dimmed(),
+        threshold.to_string().dimmed()
+    );
+    println!();
+    println!(
+        "  {:<24} {:>12}  {:>12}  {:>8}  {}",
+        "instruction".dimmed(),
+        "baseline".dimmed(),
+        "current".dimmed(),
+        "delta".dimmed(),
+        "status".dimmed(),
+    );
+    println!("  {}", "─".repeat(68).dimmed());
+}
+
+pub fn print_diff_row(result: &DiffResult) {
+    let delta_str = if result.delta_pct > 0.0 {
+        format!("+{:.1}%", result.delta_pct)
+    } else {
+        format!("{:.1}%", result.delta_pct)
+    };
+
+    let line = if result.is_regression {
+        format!(
+            "  {:<24} {:>12}  {:>12}  {:>8}  {}",
+            result.instruction.red(),
+            format_cu(result.baseline_cu).red(),
+            format_cu(result.current_cu).red(),
+            delta_str.red().bold(),
+            "✗ REGRESSION".red().bold(),
+        )
+    } else if result.delta_pct > 5.0 {
+        format!(
+            "  {:<24} {:>12}  {:>12}  {:>8}  {}",
+            result.instruction.yellow(),
+            format_cu(result.baseline_cu).yellow(),
+            format_cu(result.current_cu).yellow(),
+            delta_str.yellow(),
+            "⚠ within threshold".yellow(),
+        )
+    } else if result.delta_pct < 0.0 {
+        format!(
+            "  {:<24} {:>12}  {:>12}  {:>8}  {}",
+            result.instruction.green(),
+            format_cu(result.baseline_cu).green(),
+            format_cu(result.current_cu).green(),
+            delta_str.green(),
+            "✓ improved".green(),
+        )
+    } else {
+        format!(
+            "  {:<24} {:>12}  {:>12}  {:>8}  {}",
+            result.instruction.white(),
+            format_cu(result.baseline_cu).dimmed(),
+            format_cu(result.current_cu).dimmed(),
+            delta_str.dimmed(),
+            "✓".green(),
+        )
+    };
+
+    println!("{}", line);
+}
+
+pub fn print_diff_summary(results: &[DiffResult]) -> i32 {
+    let regressions: Vec<_> = results.iter().filter(|r| r.is_regression).collect();
+    let improvements: Vec<_> = results.iter().filter(|r| r.delta_pct < 0.0).collect();
+
+    println!();
+    if regressions.is_empty() {
+        println!("{} no regressions found", "✓".green().bold());
+        if !improvements.is_empty() {
+            println!("{} {} instruction(s) improved", "↓".green(), improvements.len());
+        }
+        println!();
+        0
+    } else {
+        println!(
+            "{} {} regression(s) found — exceeds threshold",
+            "✗".red().bold(),
+            regressions.len()
+        );
+        for r in &regressions {
+            println!(
+                "  {} {} +{:.1}% ({} → {} CU)",
+                "→".red(),
+                r.instruction.red(),
+                r.delta_pct,
+                r.baseline_cu,
+                r.current_cu,
+            );
+        }
+        println!();
+        1
+    }
 }
 
 fn make_bar(value: u64, max: u64) -> String {
