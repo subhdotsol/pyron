@@ -6,3 +6,5 @@ pub use terminal::{
     clear_progress, print_cpi_tree, print_diff_header, print_diff_row, print_diff_summary,
     print_footer, print_header, print_instruction_stats, print_simulating,
 };
+
+pub use html::generate_report;

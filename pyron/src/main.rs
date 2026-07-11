@@ -39,6 +39,14 @@ enum Commands {
         /// Fee payer pubkey for simulation (auto-detected from program upgrade authority if omitted)
         #[arg(long)]
         payer: Option<String>,
+
+        /// Generate an HTML flamegraph report
+        #[arg(long)]
+        report: bool,
+
+        /// Directory to write the HTML report into
+        #[arg(long, default_value = "pyron-report")]
+        report_dir: String,
     },
 
     /// Save current profile as baseline for regression detection
@@ -102,8 +110,10 @@ async fn main() -> Result<()> {
             program_id,
             idl,
             payer,
+            report,
+            report_dir,
         } => {
-            cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer)?;
+            cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer, report, report_dir)?;
         }
         Commands::Baseline {
             rpc_url,

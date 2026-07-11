@@ -1,9 +1,12 @@
 use anyhow::{Context, Result};
-use pyron_parser::aggregate;
+use pyron_parser::{aggregate, CuNode, CuStats};
 use pyron_report::{
-    clear_progress, print_footer, print_header, print_instruction_stats, print_simulating,
+    clear_progress, generate_report, print_footer, print_header, print_instruction_stats,
+    print_simulating,
 };
-use pyron_sim::{detect_idl, detect_program_id, load_idl, resolve_payer_pubkey, simulate_instruction, RunConfig};
+use pyron_sim::{
+    detect_idl, detect_program_id, load_idl, resolve_payer_pubkey, simulate_instruction, RunConfig,
+};
 use std::{path::PathBuf, time::Instant};
 
 pub fn run(
@@ -13,6 +16,8 @@ pub fn run(
     program_id_override: Option<String>,
     idl_path_override: Option<String>,
     payer_override: Option<String>,
+    report: bool,
+    report_dir: String,
 ) -> Result<()> {
     let start = Instant::now();
     let cwd = std::env::current_dir()?;
@@ -25,20 +30,15 @@ pub fn run(
 
     let idl_path = match idl_path_override {
         Some(ref p) => PathBuf::from(p),
-        None => detect_idl(&cwd)
-            .context("No IDL found. Run `anchor build` first, or pass --idl")?,
+        None => detect_idl(&cwd).context("No IDL found. Run `anchor build` first, or pass --idl")?,
     };
 
-    let instructions = load_idl(&idl_path)
+    let mut instructions = load_idl(&idl_path)
         .with_context(|| format!("Could not load IDL from {}", idl_path.display()))?;
 
-    let instructions: Vec<_> = match &instruction_filter {
-        Some(name) => instructions
-            .into_iter()
-            .filter(|ix| ix.name.to_lowercase().contains(&name.to_lowercase()))
-            .collect(),
-        None => instructions,
-    };
+    if let Some(ref name) = instruction_filter {
+        instructions.retain(|ix| ix.name.to_lowercase().contains(&name.to_lowercase()));
+    }
 
     if instructions.is_empty() {
         anyhow::bail!("No instructions match the filter. Check your IDL.");
@@ -54,6 +54,8 @@ pub fn run(
 
     print_header(&program_id.to_string(), &rpc_url, runs);
 
+    let mut all_stats: Vec<CuStats> = Vec::new();
+    let mut all_trees: Vec<Option<CuNode>> = Vec::new();
     let mut profiled = 0;
 
     for ix in &instructions {
@@ -65,19 +67,41 @@ pub fn run(
         match simulate_instruction(&config, ix) {
             Ok(nodes) => {
                 clear_progress();
-                let stats = aggregate(nodes.clone());
-                let tree = nodes.first();
-                print_instruction_stats(&stats, tree);
+                let tree = nodes.first().cloned();
+                let stats = aggregate(nodes);
+                print_instruction_stats(&stats, tree.as_ref());
+                all_stats.push(stats);
+                all_trees.push(tree);
                 profiled += 1;
             }
             Err(e) => {
                 clear_progress();
                 eprintln!("  error: {} {}", ix.name, e);
+                all_trees.push(None);
             }
         }
     }
 
     print_footer(profiled, start.elapsed().as_secs_f64());
+
+    if report {
+        let pairs: Vec<_> = all_stats
+            .iter()
+            .zip(all_trees.iter())
+            .map(|(s, t)| (s, t.as_ref()))
+            .collect();
+
+        let out_dir = PathBuf::from(&report_dir);
+
+        match generate_report(&pairs, &program_id.to_string(), &out_dir) {
+            Ok(path) => {
+                println!("  report saved to {}", path);
+                let _ = std::process::Command::new("open").arg(&path).spawn();
+                let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+            }
+            Err(e) => eprintln!("  report generation failed: {}", e),
+        }
+    }
 
     Ok(())
 }
