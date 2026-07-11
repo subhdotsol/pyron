@@ -8,5 +8,5 @@ pub mod types;
 pub use aggregator::aggregate;
 pub use baseline::{diff_against_baseline, Baseline, DiffResult};
 pub use error::ParseError;
-pub use parser::parse_logs;
-pub use types::{CuNode, CuReport, CuStats};
+pub use parser::{parse_logs, parse_logs_one};
+pub use types::{CuNode, CuReport, CuStats, LogEntry};

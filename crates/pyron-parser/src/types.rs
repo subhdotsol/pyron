@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+/// A single `Program log:` line captured during simulation.
+/// If the program called `sol_log_compute_units!()`, `cu_remaining` is set.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    /// The raw log message (without the "Program log: " prefix)
+    pub message: String,
+    /// Remaining compute budget at this point — set when the log line is
+    /// a `sol_log_compute_units!()` output ("X compute units remaining")
+    #[serde(default)]
+    pub cu_remaining: Option<u64>,
+}
+
 /// One frame in the CPI call tree.
 /// Represents a single program invocation and all its nested calls.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +38,16 @@ pub struct CuNode {
 
     /// Whether this frame succeeded or failed
     pub success: bool,
+
+    /// All `Program log:` lines emitted by this frame, in order.
+    /// Includes sol_log_compute_units!() checkpoints (cu_remaining is Some).
+    #[serde(default)]
+    pub logs: Vec<LogEntry>,
+
+    /// The compute budget available at the start of this invocation.
+    /// Derived from the "consumed N of M" log line (M = budget at entry).
+    #[serde(default)]
+    pub budget_at_invocation: u64,
 }
 
 impl CuNode {

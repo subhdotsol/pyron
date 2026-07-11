@@ -40,6 +40,12 @@ enum Commands {
         #[arg(long)]
         payer: Option<String>,
 
+        /// Re-simulate a real confirmed transaction instead of a dummy instruction.
+        /// Pass a devnet/mainnet tx signature — pyron fetches the exact accounts
+        /// and data so complex instructions (with args + PDA accounts) profile correctly.
+        #[arg(long)]
+        tx: Option<String>,
+
         /// Generate an HTML flamegraph report
         #[arg(long)]
         report: bool,
@@ -110,10 +116,11 @@ async fn main() -> Result<()> {
             program_id,
             idl,
             payer,
+            tx,
             report,
             report_dir,
         } => {
-            cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer, report, report_dir)?;
+            cmd::profile::run(instruction, runs, rpc_url, program_id, idl, payer, tx, report, report_dir)?;
         }
         Commands::Baseline {
             rpc_url,
